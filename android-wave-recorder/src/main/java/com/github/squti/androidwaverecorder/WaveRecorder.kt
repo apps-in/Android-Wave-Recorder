@@ -165,7 +165,8 @@ class WaveRecorder(private var filePath: String, private var updateInterval: Int
         ByteBuffer.wrap(data).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer()
             .get(shortData)
         for (short in shortData) amplitudeBuffer.add(short)
-        val updateCount = ((waveConfig.sampleRate / waveConfig.channels) * (updateInterval / 1000f)).toInt();
+        val channels = if (waveConfig.channels == AudioFormat.CHANNEL_IN_MONO) 1 else 2
+        val updateCount = (waveConfig.sampleRate / channels) * 1000 / updateInterval
         var amplitudes = LinkedList<Int>()
         while (amplitudeBuffer.size > updateCount) {
             var portion = ShortArray(updateCount)
