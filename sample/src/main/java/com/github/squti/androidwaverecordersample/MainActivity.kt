@@ -56,7 +56,7 @@ class MainActivity : AppCompatActivity() {
 
         filePath = externalCacheDir?.absolutePath + "/audioFile.wav"
 
-        waveRecorder = WaveRecorder(filePath)
+        waveRecorder = WaveRecorder(filePath, 100)
 
         waveRecorder.onStateChangeListener = {
             when (it) {

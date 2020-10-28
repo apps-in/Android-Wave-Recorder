@@ -41,14 +41,14 @@ internal class WaveHeaderWriter(private val filePath: String, private val waveCo
 
         val sampleRate = waveConfig.sampleRate.toLong()
         val byteRate =
-            (bitPerSample(waveConfig.audioEncoding) * waveConfig.sampleRate * channels / 8).toLong()
+            (bitPerSample(AudioFormat.ENCODING_PCM_16BIT) * waveConfig.sampleRate * channels / 8).toLong()
         val header = getWavFileHeaderByteArray(
             totalAudioLen,
             totalDataLen,
             sampleRate,
             channels,
             byteRate,
-            bitPerSample(waveConfig.audioEncoding)
+            bitPerSample(AudioFormat.ENCODING_PCM_16BIT)
         )
 
         val randomAccessFile = RandomAccessFile(File(filePath), "rw")

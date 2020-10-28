@@ -24,6 +24,7 @@
 
 package com.github.squti.androidwaverecorder
 
+import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
 import android.media.audiofx.NoiseSuppressor
@@ -34,6 +35,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.util.*
 
 /**
  * The WaveRecorder class used to record Waveform audio file using AudioRecord class to get the audio stream in PCM encoding
@@ -41,7 +43,7 @@ import java.nio.ByteOrder
  * Kotlin Coroutine with IO dispatcher to writing input data on storage asynchronously.
  * @property filePath the path of the file to be saved.
  */
-class WaveRecorder(private var filePath: String) {
+class WaveRecorder(private var filePath: String, private var updateInterval: Int) {
     /**
      * Configuration for recording audio file.
      */
@@ -51,7 +53,7 @@ class WaveRecorder(private var filePath: String) {
      * Register a callback to be invoked in every recorded chunk of audio data
      * to get max amplitude of that chunk.
      */
-    var onAmplitudeListener: ((Int) -> Unit)? = null
+    var onAmplitudeListener: ((IntArray) -> Unit)? = null
 
     /**
      * Register a callback to be invoked in recording state changes
@@ -80,6 +82,7 @@ class WaveRecorder(private var filePath: String) {
     private var isPaused = false
     private lateinit var audioRecorder: AudioRecord
     private var noiseSuppressor: NoiseSuppressor? = null
+    private lateinit var amplitudeBuffer: LinkedList<Short>
 
     /**
      * Starts audio recording asynchronously and writes recorded data chunks on storage.
@@ -91,17 +94,19 @@ class WaveRecorder(private var filePath: String) {
                 MediaRecorder.AudioSource.MIC,
                 waveConfig.sampleRate,
                 waveConfig.channels,
-                waveConfig.audioEncoding,
+                AudioFormat.ENCODING_PCM_16BIT,
                 AudioRecord.getMinBufferSize(
                     waveConfig.sampleRate,
                     waveConfig.channels,
-                    waveConfig.audioEncoding
+                    AudioFormat.ENCODING_PCM_16BIT
                 )
             )
 
             audioSessionId = audioRecorder.audioSessionId
 
             isRecording = true
+
+            amplitudeBuffer = LinkedList()
 
             audioRecorder.startRecording()
 
@@ -123,7 +128,7 @@ class WaveRecorder(private var filePath: String) {
         val bufferSize = AudioRecord.getMinBufferSize(
             waveConfig.sampleRate,
             waveConfig.channels,
-            waveConfig.audioEncoding
+            AudioFormat.ENCODING_PCM_16BIT
         )
         val data = ByteArray(bufferSize)
         val file = File(filePath)
@@ -132,15 +137,18 @@ class WaveRecorder(private var filePath: String) {
             val operationStatus = audioRecorder.read(data, 0, bufferSize)
 
             if (AudioRecord.ERROR_INVALID_OPERATION != operationStatus) {
-                if (!isPaused) outputStream.write(data)
+                if (!isPaused) {
+                    outputStream.write(data)
 
-                withContext(Dispatchers.Main) {
-                    onAmplitudeListener?.let {
-                        it(calculateAmplitudeMax(data))
-                    }
-                    onTimeElapsed?.let {
-                        val audioLengthInSeconds: Long = file.length() / (2 * waveConfig.sampleRate)
-                        it(audioLengthInSeconds)
+                    withContext(Dispatchers.Main) {
+                        onAmplitudeListener?.let {
+                            it(calculateAmplitudeMax(data))
+                        }
+                        onTimeElapsed?.let {
+                            val audioLengthInSeconds: Long =
+                                file.length() / (2 * waveConfig.sampleRate)
+                            it(audioLengthInSeconds)
+                        }
                     }
                 }
 
@@ -152,12 +160,22 @@ class WaveRecorder(private var filePath: String) {
         noiseSuppressor?.release()
     }
 
-    private fun calculateAmplitudeMax(data: ByteArray): Int {
+    private fun calculateAmplitudeMax(data: ByteArray): IntArray {
         val shortData = ShortArray(data.size / 2)
         ByteBuffer.wrap(data).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer()
             .get(shortData)
-
-        return shortData.max()?.toInt() ?: 0
+        for (short in shortData) amplitudeBuffer.add(short)
+        val updateCount = (waveConfig.sampleRate / waveConfig.channels) * (updateInterval / 1000)
+        var amplitudes = LinkedList<Int>()
+        while (amplitudeBuffer.size > updateCount) {
+            var portion = ShortArray(updateCount)
+            var n = 0;
+            while (n < updateCount) {
+                portion[n] = amplitudeBuffer.removeFirst()
+            }
+            amplitudes.add(portion.max()?.toInt() ?: 0)
+        }
+        return amplitudes.toIntArray()
     }
 
     /**
