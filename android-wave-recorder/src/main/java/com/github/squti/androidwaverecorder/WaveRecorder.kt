@@ -172,6 +172,7 @@ class WaveRecorder(private var filePath: String, private var updateInterval: Int
             var n = 0;
             while (n < updateCount) {
                 portion[n] = amplitudeBuffer.removeFirst()
+                n += 1
             }
             amplitudes.add(portion.max()?.toInt() ?: 0)
         }
