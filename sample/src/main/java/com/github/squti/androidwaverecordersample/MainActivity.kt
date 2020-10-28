@@ -58,17 +58,17 @@ class MainActivity : AppCompatActivity() {
 
         waveRecorder = WaveRecorder(filePath, 100)
 
-        waveRecorder.onStateChangeListener = {
-            when (it) {
-                RecorderState.RECORDING -> startRecording()
-                RecorderState.STOP -> stopRecording()
-                RecorderState.PAUSE -> pauseRecording()
-            }
-        }
-        waveRecorder.onTimeElapsed = {
-            Log.e(TAG, "onCreate: time elapsed $it")
-            timeTextView.text = formatTimeUnit(it * 1000)
-        }
+//        waveRecorder.stateChangeListener = {
+//            when (it) {
+//                RecorderState.RECORDING -> startRecording()
+//                RecorderState.STOP -> stopRecording()
+//                RecorderState.PAUSE -> pauseRecording()
+//            }
+//        }
+//        waveRecorder.elapsedTimeListener = {
+//            Log.e(TAG, "onCreate: time elapsed $it")
+//            timeTextView.text = formatTimeUnit(it * 1000)
+//        }
 
         startStopRecordingButton.setOnClickListener {
 
@@ -103,14 +103,14 @@ class MainActivity : AppCompatActivity() {
             if (isChecked) {
                 amplitudeTextView.text = "Amplitude : 0"
                 amplitudeTextView.visibility = View.VISIBLE
-                waveRecorder.onAmplitudeListener = {
-                    GlobalScope.launch(Dispatchers.Main) {
-                        amplitudeTextView.text = "Amplitude : $it"
-                    }
-                }
+//                waveRecorder.amplitudeListener = {
+//                    GlobalScope.launch(Dispatchers.Main) {
+//                        amplitudeTextView.text = "Amplitude : $it"
+//                    }
+//                }
 
             } else {
-                waveRecorder.onAmplitudeListener = null
+                waveRecorder.amplitudeListener = null
                 amplitudeTextView.visibility = View.GONE
             }
         }

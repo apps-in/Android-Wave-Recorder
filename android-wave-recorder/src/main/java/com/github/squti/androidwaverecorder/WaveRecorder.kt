@@ -53,17 +53,17 @@ class WaveRecorder(private var filePath: String, private var updateInterval: Int
      * Register a callback to be invoked in every recorded chunk of audio data
      * to get max amplitude of that chunk.
      */
-    var onAmplitudeListener: ((IntArray) -> Unit)? = null
+    var amplitudeListener: AmplitudeListener? = null
 
     /**
      * Register a callback to be invoked in recording state changes
      */
-    var onStateChangeListener: ((RecorderState) -> Unit)? = null
+    var stateChangeListener: StateChangeListener? = null
 
     /**
      * Register a callback to get elapsed recording time in seconds
      */
-    var onTimeElapsed: ((Long) -> Unit)? = null
+    var elapsedTimeListener: ElapsedTimeListener? = null
 
     /**
      * Activates Noise Suppressor during recording if the device implements noise
@@ -114,8 +114,8 @@ class WaveRecorder(private var filePath: String, private var updateInterval: Int
                 noiseSuppressor = NoiseSuppressor.create(audioRecorder.audioSessionId)
             }
 
-            onStateChangeListener?.let {
-                it(RecorderState.RECORDING)
+            stateChangeListener?.let {
+                it.onStateChanged(RecorderState.RECORDING)
             }
 
             GlobalScope.launch(Dispatchers.IO) {
@@ -141,13 +141,13 @@ class WaveRecorder(private var filePath: String, private var updateInterval: Int
                     outputStream.write(data)
 
                     withContext(Dispatchers.Main) {
-                        onAmplitudeListener?.let {
-                            it(calculateAmplitudeMax(data))
+                        amplitudeListener?.let {
+                            it.onNewChunk(calculateAmplitudeMax(data))
                         }
-                        onTimeElapsed?.let {
+                        elapsedTimeListener?.let {
                             val audioLengthInSeconds: Long =
                                 file.length() / (2 * waveConfig.sampleRate)
-                            it(audioLengthInSeconds)
+                            it.onElapsedTimeChanged(audioLengthInSeconds)
                         }
                     }
                 }
@@ -189,8 +189,8 @@ class WaveRecorder(private var filePath: String, private var updateInterval: Int
             audioRecorder.release()
             audioSessionId = -1
             WaveHeaderWriter(filePath, waveConfig).writeHeader()
-            onStateChangeListener?.let {
-                it(RecorderState.STOP)
+            stateChangeListener?.let {
+                it.onStateChanged(RecorderState.STOP)
             }
         }
 
@@ -201,15 +201,15 @@ class WaveRecorder(private var filePath: String, private var updateInterval: Int
 
     fun pauseRecording() {
         isPaused = true
-        onStateChangeListener?.let {
-            it(RecorderState.PAUSE)
+        stateChangeListener?.let {
+            it.onStateChanged(RecorderState.PAUSE)
         }
     }
 
     fun resumeRecording() {
         isPaused = false
-        onStateChangeListener?.let {
-            it(RecorderState.RECORDING)
+        stateChangeListener?.let {
+            it.onStateChanged(RecorderState.RECORDING)
         }
     }
 
